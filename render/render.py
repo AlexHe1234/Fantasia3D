@@ -338,6 +338,44 @@ def render_uv1(ctx, mesh, resolution, mlp_texture, uv_padding_block):
     # Interpolate world space position
     gb_pos, _ = interpolate(mesh.v_pos[None, ...], rast, mesh.t_pos_idx.int())
     
+    # save vertex color mesh (will it be better)
+    vc = mlp_texture.sample(mesh.v_pos)[:,:3]
+    
+    import numpy as np
+    import trimesh
+
+    # mesh = trimesh.load('/Users/alexhe/Downloads/res.obj' )
+    # mesh.show()
+
+    def rgb_to_srgb(rgb):
+        # Ensure the input is a numpy array
+        rgb = np.asarray(rgb, dtype=np.float32) / 255.
+        
+        # Apply the gamma correction (sRGB encoding)
+        srgb = np.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * np.power(rgb, 1/2.4) - 0.055)
+        
+        # Clip the values to ensure they are within the [0, 1] range
+        srgb = np.clip(srgb, 0, 1)
+        
+        # Scale the values back to [0, 255]
+        return (srgb * 255).astype(np.uint8)
+
+    # Example usage:
+    from PIL import Image
+    
+    me = trimesh.Trimesh(
+        mesh.v_pos.cpu().numpy(),
+        mesh.t_pos_idx.cpu().numpy(),
+    )
+    me.visual.vertex_colors = vc.cpu().numpy()
+
+    colors = me.visual.vertex_colors
+    colors[:,:3]=rgb_to_srgb(colors[:,:3])
+    me.visual.vertex_colors = colors
+    
+    me.export('res.obj')
+    print('Saved vertex color mesh @res.obj')
+
     # Sample out textures from MLP
     all_tex = mlp_texture.sample(gb_pos)
     assert all_tex.shape[-1] == 9 or all_tex.shape[-1] == 10, "Combined kd_ks_normal must be 9 or 10 channels"

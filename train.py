@@ -16,6 +16,8 @@ import numpy as np
 import torch
 import nvdiffrast.torch as dr
 import xatlas
+import hashlib
+import trimesh
 
 # Import data readers / generators
 from dataset.dataset_mesh import DatasetMesh
@@ -43,6 +45,12 @@ from render.video import Video
 import random
 import imageio
 import os.path as osp
+
+# from convert_mesh import write_obj_trimesh
+import warnings
+
+warnings.simplefilter("ignore", category=FutureWarning)
+warnings.simplefilter("ignore", category=UserWarning)
 
 
 ###############################################################################
@@ -106,8 +114,9 @@ def xatlas_uvmap(glctx, geometry, mat, FLAGS):
 
 @torch.no_grad()
 def xatlas_uvmap1(glctx, geometry, mat, FLAGS):
+    # breakpoint()
     eval_mesh = geometry.getMesh(mat)
-    new_mesh = mesh.Mesh( base=eval_mesh)
+    new_mesh = mesh.Mesh( base=eval_mesh) # new_mesh.v_tex all 0?
     mask, kd, ks, normal = render.render_uv1(glctx, new_mesh, FLAGS.texture_res, eval_mesh.material['kd_ks_normal'], FLAGS.uv_padding_block)
     
     if FLAGS.layers > 1:
@@ -289,8 +298,9 @@ def validate(glctx, geometry, opt_material, lgt, dataset_validate, out_dir, FLAG
                 util.save_image(ks_dir + '/' + ('val_%06d_%s.png' % (it, k)), np_img)
             elif k == 'normal':
                 util.save_image(normal_dir + '/' + ('val_%06d_%s.png' % (it, k)), np_img)
-            elif k == 'mask':
-                util.save_image(mask_dir + '/' + ('val_%06d_%s.png' % (it, k)), np_img)
+            # elif k == 'mask':
+                # breakpoint()
+                # util.save_image(mask_dir + '/' + ('val_%06d_%s.png' % (it, k)), np_img)
     if 'shaded' in result_dict.keys():
         save_gif(shaded_dir,30)
     if 'relight' in result_dict.keys():
@@ -301,8 +311,8 @@ def validate(glctx, geometry, opt_material, lgt, dataset_validate, out_dir, FLAG
         save_gif(ks_dir,30)
     if 'normal' in result_dict.keys():
         save_gif(normal_dir,30)
-    if 'mask' in result_dict.keys():
-        save_gif(mask_dir,30)
+    # if 'mask' in result_dict.keys():
+        # save_gif(mask_dir,30)
     return 0
 
 ###############################################################################
@@ -531,6 +541,7 @@ def seed_everything(seed, local_rank):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='nvdiffrec')
     parser.add_argument('--config', type=str, default=None, help='Config file')
+    parser.add_argument('--cuda', type=str, default=0, help='cuda device id')
     parser.add_argument('-i', '--iter', type=int, default=5000)
     parser.add_argument('-b', '--batch', type=int, default=1)
     parser.add_argument('-s', '--spp', type=int, default=1)
@@ -594,7 +605,8 @@ if __name__ == "__main__":
     FLAGS.gpu_number          = 1
     FLAGS.sdf_init_shape_scale=[1.0, 1.0, 1.0]
     # FLAGS.local_rank = 0
-    FLAGS.multi_gpu  = "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) > 1
+    # FLAGS.multi_gpu  = "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) > 1
+    FLAGS.multi_gpu  = False
     
      
     if FLAGS.multi_gpu:
@@ -611,17 +623,17 @@ if __name__ == "__main__":
 
     if FLAGS.display_res is None:
         FLAGS.display_res = FLAGS.train_res
-    if FLAGS.out_dir is None:
-        FLAGS.out_dir = 'out/cube_%d' % (FLAGS.train_res)
-    else:
-        FLAGS.out_dir = 'out/' + FLAGS.out_dir
+    # if FLAGS.out_dir is None:
+    #     FLAGS.out_dir = 'out/cube_%d' % (FLAGS.train_res)
+    # else:
+    FLAGS.out_dir = FLAGS.out_dir
 
-    if FLAGS.local_rank == 0:
-        print("Config / Flags:")
-        print("---------")
-        for key in FLAGS.__dict__.keys():
-            print(key, FLAGS.__dict__[key])
-        print("---------")
+    # if FLAGS.local_rank == 0:
+    #     print("Config / Flags:")
+    #     print("---------")
+    #     for key in FLAGS.__dict__.keys():
+    #         print(key, FLAGS.__dict__[key])
+    #     print("---------")
 
     seed_everything(FLAGS.seed, FLAGS.local_rank)
     
@@ -720,8 +732,31 @@ if __name__ == "__main__":
         # ==============================================================================================
         if FLAGS.base_mesh is None:
             assert False, "[Error] The path of custom mesh is invalid ! (appearance modeling)"
+            
         # Load initial guess mesh from file
+        # try:
         base_mesh = mesh.load_mesh(FLAGS.base_mesh)
+        # breakpoint()
+        # except:            
+        #     mesh_trimesh = trimesh.load(FLAGS.base_mesh)
+            
+        #     def compute_sha1(file_path):
+        #         sha1_hash = hashlib.sha1() 
+        #         with open(file_path, 'rb') as f:  # Open the file in binary mode
+        #             while chunk := f.read(8192):  # Read the file in chunks of 8192 bytes
+        #                 sha1_hash.update(chunk)   # Update the hash with the chunk
+        #         return sha1_hash.hexdigest()  # Return the hexadecimal digest of the hash
+                        
+        #     cache_dir = 'cache'
+        #     sha1 = str(compute_sha1(FLAGS.base_mesh))
+                        
+        #     file_dir = os.path.join(cache_dir, sha1)
+        #     os.makedirs(file_dir, exist_ok=True)
+            
+            
+        #     save_trimesh(file_dir, mesh_trimesh, True)
+        #     base_mesh = mesh.load_mesh(os.path.join(file_dir, 'mesh.obj'))
+        
         geometry = DLMesh(base_mesh, FLAGS)
  
         # mat = initial_guness_material(geometry, False, FLAGS, init_mat=base_mesh.material)
@@ -737,7 +772,8 @@ if __name__ == "__main__":
                                       optimize_geometry= False, 
                                       guidance= guidance,
                                       )
-        
+        # breakpoint()
+
         # ==============================================================================================
         #  Validate
         # ==============================================================================================
@@ -753,6 +789,8 @@ if __name__ == "__main__":
         mat['kd_ks_normal'].cleanup()
         del mat['kd_ks_normal']
         lgt = lgt.clone()
+        
+        # breakpoint()
         if FLAGS.local_rank == 0:
             os.makedirs(os.path.join(FLAGS.out_dir, "dmtet_mesh"), exist_ok=True)
             obj.write_obj(os.path.join(FLAGS.out_dir, "dmtet_mesh/"), base_mesh)
@@ -760,6 +798,3 @@ if __name__ == "__main__":
     
     else:
         assert False, "Invalid mode type"
-   
-    
-

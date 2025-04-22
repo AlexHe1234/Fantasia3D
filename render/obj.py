@@ -117,7 +117,6 @@ def load_obj(filename, clear_ks=True, mtl_override=None):
     faces = torch.tensor(faces, dtype=torch.int64, device='cuda')
     tfaces = torch.tensor(tfaces, dtype=torch.int64, device='cuda') if texcoords is not None else None
     nfaces = torch.tensor(nfaces, dtype=torch.int64, device='cuda') if normals is not None else None
-
     return mesh.Mesh(vertices, faces, normals, nfaces, texcoords, tfaces, material=uber_material)
 
 ######################################################################################

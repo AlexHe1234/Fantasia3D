@@ -401,13 +401,13 @@ def init_glfw():
 
 
 def save_image(fn, x : np.ndarray):
-    try:
-        if os.path.splitext(fn)[1] == ".png":
-            imageio.imwrite(fn, np.clip(np.rint(x * 255.0), 0, 255).astype(np.uint8), compress_level=3) # Low compression for faster saving
-        else:
-            imageio.imwrite(fn, np.clip(np.rint(x * 255.0), 0, 255).astype(np.uint8))
-    except:
-        print("WARNING: FAILED to save image %s" % fn)
+    # try:
+    if os.path.splitext(fn)[1] == ".png":
+        imageio.imwrite(fn, np.clip(np.rint(x * 255.0), 0, 255).astype(np.uint8), compress_level=3) # Low compression for faster saving
+    else:
+        imageio.imwrite(fn, np.clip(np.rint(x * 255.0), 0, 255).astype(np.uint8))
+    # except:
+        # print("WARNING: FAILED to save image %s" % fn)
 
 def save_image_raw(fn, x : np.ndarray):
     try:
@@ -418,6 +418,7 @@ def save_image_raw(fn, x : np.ndarray):
 
 def load_image_raw(fn) -> np.ndarray:
     return imageio.imread(fn)
+
 
 def load_image(fn) -> np.ndarray:
     img = load_image_raw(fn)
